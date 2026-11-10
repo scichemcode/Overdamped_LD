@@ -1,6 +1,7 @@
 # Overdamped Langevin Dynamics
 
 [![tests](https://github.com/scichemcode/Overdamped_LD/actions/workflows/tests.yml/badge.svg)](https://github.com/scichemcode/Overdamped_LD/actions/workflows/tests.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/scichemcode/Overdamped_LD/blob/main/Overdamped_LD_Full.ipynb)
 
 A small Python package for simulating a Brownian particle in a 1D double-well potential. It shows how the rate of transitions between the two states depends on the barrier height, and it checks every result against exact theory.
@@ -78,3 +79,7 @@ overdamped-ld figures --outdir docs/figures      # regenerate every figure in th
 ## Units
 
 Energies are in units of $k_BT$, and the default parameters are `kT = 1` and `friction = 1`, which gives $D = 1$. The original notebook used `kT = 0.5` and $m\gamma = 0.5$, which also gives $D = 1$. Both are the same physics: only $E_b/k_BT$ and $D$ affect the dimensionless kinetics.
+
+## License
+
+[MIT](LICENSE) © 2026 Kriti Alam
