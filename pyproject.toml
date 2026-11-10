@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "overdamped-ld"
+version = "0.2.0"
+description = "Overdamped Langevin dynamics in a 1D double well, validated against exact first-passage and Kramers theory."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Kriti Alam" }]
+keywords = ["langevin", "brownian dynamics", "kramers", "rare events", "statistical mechanics"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+]
+dependencies = ["numpy>=2.0", "matplotlib>=3.7"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.5"]
+notebook = ["jupyter"]
+
+[project.scripts]
+overdamped-ld = "overdamped_ld.cli:main"
+
+[project.urls]
+Repository = "https://github.com/scichemcode/Overdamped_LD"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/overdamped_ld"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+src = ["src"]
+extend-exclude = ["*.ipynb"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "NPY"]
+ignore = ["B905"]
