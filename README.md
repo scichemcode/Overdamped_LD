@@ -2,9 +2,12 @@
 
 [![tests](https://github.com/scichemcode/Overdamped_LD/actions/workflows/tests.yml/badge.svg)](https://github.com/scichemcode/Overdamped_LD/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Live demo](https://img.shields.io/badge/live%20demo-Double--well%20lab-e8590c)](https://scichemcode.github.io/Overdamped_LD/)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/scichemcode/Overdamped_LD/blob/main/Overdamped_LD_Full.ipynb)
 
 A small Python package for simulating a Brownian particle in a 1D double-well potential. It shows how the rate of transitions between the two states depends on the barrier height, and it checks every result against exact theory.
+
+**▶ [Try the interactive Double-well lab in your browser](https://scichemcode.github.io/Overdamped_LD/)**: drag sliders for the barrier, temperature, friction and more, and watch the particle hop. Nothing to install.
 
 <p align="center"><img src="docs/figures/rates.png" width="560" alt="Mean first-passage time vs barrier height: simulation, exact quadrature and Kramers theory"></p>
 
@@ -22,17 +25,25 @@ $$x_{j+1}=x_j-\frac{\Delta t}{\zeta}U'(x_j)+\sqrt{2D\Delta t}\,\xi_j,\qquad D=k_
 
 ![distributions](docs/figures/distributions.png)
 
-## Interactive explorer
+## Interactive lab
 
-`docs/index.html` is a live lab page. It runs this package's own `simulate` in the browser through [Pyodide](https://pyodide.org), Python compiled to WebAssembly, so there's no server and nothing is pre-rendered. Sliders for the barrier height, temperature, friction, well position, time step, run length, start position and seed rerun the simulation as you drag. A 200k-step run takes about 0.05 s in the browser.
+**Live at <https://scichemcode.github.io/Overdamped_LD/>**
 
-The page animates the particle on the potential above its trajectory, which is drawn as it plays. Beside the trajectory, a histogram of visited positions fills in against the Boltzmann curve. A readout gives the hop count, time spent in each well, the exact mean wait time and the Kramers estimate. The page warns you when the time step is too large for the chosen potential.
+[![Double-well lab: sliders for the parameters, the particle animated on the potential, its trajectory and a histogram against the Boltzmann distribution](docs/figures/lab.png)](https://scichemcode.github.io/Overdamped_LD/)
+
+The lab runs this package's own `simulate` in your browser through [Pyodide](https://pyodide.org), Python compiled to WebAssembly. There's no server and nothing is pre-rendered. Python takes a few seconds to load the first time.
+
+- **Sliders:** barrier height, temperature $k_BT$, friction $\zeta$, well position $d$, time step $\Delta t$, run length, start position and random seed. Each change reruns the simulation; a 200,000-step run takes about 0.05 s in the browser.
+- **Animation:** the particle moves on the potential with a $k_BT$ scale bar, its trajectory $x(t)$ is drawn as it plays, and a histogram of visited positions fills in against the Boltzmann curve. You can play, pause, scrub and change the speed.
+- **Readouts:** $E_b/k_BT$, $D$, hop count, time in each well, mean stay in a well, the exact mean wait for a hop, and the Kramers estimate. There's a warning when $\Delta t$ is too large for the chosen potential.
+- **Same noise:** keeping the seed fixed reuses the same random kicks, so you can change one parameter and see its effect alone.
+
+The page is `docs/index.html`, served by GitHub Pages from the `main` branch's `/docs` folder. After changing the package, rebuild it so the browser runs the same code the tests check:
 
 ```bash
 overdamped-ld web          # bundles the package source into docs/index.html
+python -m http.server -d docs   # optional: preview at http://localhost:8000
 ```
-
-To host it, turn on GitHub Pages for the `main` branch's `/docs` folder (**Settings → Pages**).
 
 ## What's in the box
 
