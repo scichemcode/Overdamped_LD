@@ -24,10 +24,12 @@ $$x_{j+1}=x_j-\frac{\Delta t}{\zeta}U'(x_j)+\sqrt{2D\Delta t}\,\xi_j,\qquad D=k_
 
 ## Interactive explorer
 
-`docs/index.html` is a web page with a barrier-height slider. For each height (1–10 $k_BT$) it plays an animation, rendered with matplotlib, of the particle moving on the potential while its trajectory is drawn underneath. Next to the animation it shows the hop count, the exact mean waiting time and the Kramers estimate. Every height uses the same random noise, so only the barrier changes between animations.
+`docs/index.html` is a live lab page. It runs this package's own `simulate` in the browser through [Pyodide](https://pyodide.org), Python compiled to WebAssembly, so there's no server and nothing is pre-rendered. Sliders for the barrier height, temperature, friction, well position, time step, run length, start position and seed rerun the simulation as you drag. A 200k-step run takes about 0.05 s in the browser.
+
+The page animates the particle on the potential above its trajectory, which is drawn as it plays. Beside the trajectory, a histogram of visited positions fills in against the Boltzmann curve. A readout gives the hop count, time spent in each well, the exact mean wait time and the Kramers estimate. The page warns you when the time step is too large for the chosen potential.
 
 ```bash
-overdamped-ld web                    # renders docs/anim/*.webp in parallel and writes docs/index.html
+overdamped-ld web          # bundles the package source into docs/index.html
 ```
 
 To host it, turn on GitHub Pages for the `main` branch's `/docs` folder (**Settings → Pages**).
@@ -40,7 +42,7 @@ To host it, turn on GitHub Pages for the `main` branch's `/docs` folder (**Setti
 | `integrators` | `simulate` (many walkers run in parallel, seeded, strided, saved to `.npz`) and `first_passage_times` |
 | `analysis` | `assign_states` (core sets with hysteresis), `count_transitions`, `transition_rate`, `dwell_times`, `populations`; theory: `boltzmann_density`, `mfpt_exact` (exact 1D quadrature), `kramers_rate` |
 | `plotting` | The figures above |
-| `animate` | Animated trajectories (`FuncAnimation` → animated WebP) and the interactive page |
+| `web` | Builds the in-browser lab page (Pyodide) |
 | `cli` | The `overdamped-ld` command |
 
 ## Install

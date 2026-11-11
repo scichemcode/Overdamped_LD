@@ -73,6 +73,20 @@ class DoubleWell:
         x = np.asarray(x, dtype=float)
         return self.barrier * (12.0 * x**2 / self.d**4 - 4.0 / self.d**2)
 
+    def scalar_force(self):
+        """Return a plain-float ``F(x)`` closure.
+
+        :func:`overdamped_ld.simulate` uses it for single-walker runs, where
+        per-step NumPy overhead would dominate. Optional for other potentials.
+        """
+        a = -4.0 * self.barrier / self.d**2
+        inv_d2 = 1.0 / self.d**2
+
+        def force(x: float) -> float:
+            return a * x * (x * x * inv_d2 - 1.0)
+
+        return force
+
     @property
     def minima(self) -> tuple[float, float]:
         return (-self.d, self.d)

@@ -17,7 +17,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Physics",
     "Topic :: Scientific/Engineering :: Chemistry",
 ]
-dependencies = ["numpy>=2.0", "matplotlib>=3.7", "pillow>=9.0"]
+dependencies = ["numpy>=2.0", "matplotlib>=3.7"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.5"]

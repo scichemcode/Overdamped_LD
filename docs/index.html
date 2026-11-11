@@ -3,23 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Barrier Hopping Explorer</title>
+<title>Langevin Double-Well Lab</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600&display=swap">
 <style>
-/* Layout: stage (animation) beside a control column; explanation runs underneath at reading width. */
+/* Layout: canvas stage on the left, parameter rack + readouts on the right; notes below at reading width. */
 :root {
-  --bg: #fbfbf9;         /* matches the light animation background exactly */
-  --panel: #f2f2ee;
+  --bg: #fbfbf9;
+  --panel: #f1f1ec;
   --ink: #1b1d22;
   --ink-2: #5a5d66;
   --muted: #8b8e96;
-  --line: #e4e4df;
-  --accent: #2a78d6;     /* the potential curve / barrier ramp */
-  --ball: #e8590c;       /* the particle */
-  --anim-theme: light;
+  --line: #e2e2dc;
+  --accent: #2a78d6;    /* potential curve, sliders */
+  --ball: #e8590c;      /* the particle */
+  --warn: #b25e00;
   --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
   --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
@@ -27,74 +27,90 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #15171b; --panel: #1c1f24; --ink: #eceae4; --ink-2: #b4b2aa; --muted: #80838a;
-    --line: #2a2d33; --accent: #5598e7; --ball: #ff8a4c; --anim-theme: dark; color-scheme: dark;
+    --bg: #15171b; --panel: #1d2026; --ink: #eceae4; --ink-2: #b4b2aa; --muted: #80838a;
+    --line: #2b2e34; --accent: #5598e7; --ball: #ff8a4c; --warn: #f0a24a; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #15171b; --panel: #1c1f24; --ink: #eceae4; --ink-2: #b4b2aa; --muted: #80838a;
-  --line: #2a2d33; --accent: #5598e7; --ball: #ff8a4c; --anim-theme: dark; color-scheme: dark;
+  --bg: #15171b; --panel: #1d2026; --ink: #eceae4; --ink-2: #b4b2aa; --muted: #80838a;
+  --line: #2b2e34; --accent: #5598e7; --ball: #ff8a4c; --warn: #f0a24a; color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body {
-  background: var(--bg);
-  color: var(--ink);
+  background: var(--bg); color: var(--ink);
   font: 15px/1.55 var(--font-body);
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   padding-block: 28px 48px;
 }
-.wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 28px; }
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 26px; }
 
 header { display: grid; gap: 6px; }
 .eyebrow { font: 500 12px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-h1 { font: 600 clamp(26px, 4vw, 36px)/1.1 var(--font-display); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
-.lede { margin: 0; color: var(--ink-2); max-width: 62ch; }
+h1 { font: 600 clamp(26px, 4vw, 36px)/1.1 var(--font-display); margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+.lede { margin: 0; color: var(--ink-2); max-width: 66ch; }
 
-.stage { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 28px; align-items: start; }
-@media (max-width: 820px) { .stage { grid-template-columns: minmax(0, 1fr); } }
+.lab { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+@media (max-width: 880px) { .lab { grid-template-columns: minmax(0, 1fr); } }
 
-.viewer { position: relative; min-width: 0; }
-.viewer img { display: block; width: 100%; max-width: 100%; height: auto; aspect-ratio: 640 / 460; }
-.play {
-  position: absolute; left: 12px; bottom: 12px;
+/* --- stage ---------------------------------------------------------- */
+.stage { display: grid; gap: 10px; min-width: 0; }
+@media (min-width: 881px) { .stage { position: sticky; top: max(16px, env(safe-area-inset-top, 0px)); } }
+.canvas-box { position: relative; width: 100%; }
+canvas { display: block; width: 100%; }
+#cv-pot { aspect-ratio: 16 / 7.6; }
+#cv-traj { aspect-ratio: 16 / 6.8; }
+.overlay {
+  position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
+  font: 500 14px var(--font-body); color: var(--ink-2); pointer-events: none;
+}
+.overlay[hidden] { display: none; }
+.spinner { width: 18px; height: 18px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.9s linear infinite; margin: 0 auto 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+.transport { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+button {
   font: 500 13px var(--font-body); color: var(--ink); background: var(--panel);
   border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer;
 }
-.play:focus-visible, input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.caption { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+button:hover { border-color: var(--muted); }
+button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.seg { display: inline-flex; }
+.seg button { border-radius: 0; margin-left: -1px; }
+.seg button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.seg button:last-child { border-radius: 0 6px 6px 0; }
+#scrub { flex: 1 1 160px; min-width: 120px; accent-color: var(--ball); }
+.status { font: 12px var(--font-mono); color: var(--muted); min-height: 1.5em; }
+.status.warn { color: var(--warn); }
 
-.controls { display: grid; gap: 22px; min-width: 0; }
-.readout { display: flex; align-items: baseline; gap: 10px; }
-.readout .value { font: 600 52px/1 var(--font-display); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.readout .unit { font: 500 18px var(--font-display); color: var(--ink-2); }
-.readout .unit i { font-style: italic; }
-
-label.slider-label { display: block; font-size: 13px; color: var(--ink-2); margin-bottom: 8px; }
-input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; height: 28px; cursor: pointer; }
-.ticks { display: flex; justify-content: space-between; font: 12px var(--font-mono); color: var(--muted); padding: 0 6px; font-variant-numeric: tabular-nums; }
+/* --- parameter rack -------------------------------------------------- */
+.rack { display: grid; gap: 18px; min-width: 0; }
+fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 10px; }
+legend { font: 500 11px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 0; margin-bottom: 8px; }
+.param { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 2px 10px; }
+.param label { font-size: 14px; color: var(--ink-2); }
+.param label i { font-family: Georgia, "Times New Roman", serif; }
+.param output { font: 500 13px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink); }
+.param input[type=range] { grid-column: 1 / -1; width: 100%; margin: 0; height: 24px; accent-color: var(--accent); cursor: pointer; }
+.seed-row { display: flex; gap: 8px; align-items: center; }
+.seed-row label { font-size: 14px; color: var(--ink-2); }
+#seed { width: 7.5em; font: 13px var(--font-mono); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
 
 dl.stats { margin: 0; display: grid; grid-template-columns: 1fr auto; border-top: 1px solid var(--line); }
-dl.stats dt, dl.stats dd { margin: 0; padding: 9px 0; border-bottom: 1px solid var(--line); }
+dl.stats dt, dl.stats dd { margin: 0; padding: 7px 0; border-bottom: 1px solid var(--line); }
 dl.stats dt { color: var(--ink-2); font-size: 14px; }
-dl.stats dd { font: 500 14px var(--font-mono); text-align: right; font-variant-numeric: tabular-nums; }
 dl.stats dt small { display: block; color: var(--muted); font-size: 12px; }
+dl.stats dd { font: 500 13px var(--font-mono); text-align: right; font-variant-numeric: tabular-nums; }
 
-.chart-card { display: grid; gap: 6px; }
-.chart-title { font: 500 13px var(--font-body); color: var(--ink-2); }
-svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
-svg.chart text { font: 11px var(--font-mono); fill: var(--muted); }
-.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--ink-2); }
-.legend span { display: inline-flex; align-items: center; gap: 6px; }
-.swatch { width: 18px; height: 0; border-top: 2px solid var(--accent); }
-.swatch.dash { border-top-style: dashed; border-color: var(--muted); }
-
-.explain { display: grid; gap: 14px; max-width: 68ch; border-top: 1px solid var(--line); padding-top: 24px; }
-.explain h2 { font: 600 20px/1.2 var(--font-display); margin: 0; }
-.explain p { margin: 0; color: var(--ink-2); }
-.eq { font: 14px var(--font-mono); background: var(--panel); border-radius: 6px; padding: 12px 14px; overflow-x: auto; color: var(--ink); white-space: nowrap; }
+/* --- notes ------------------------------------------------------------ */
+.notes { display: grid; gap: 12px; max-width: 70ch; border-top: 1px solid var(--line); padding-top: 22px; }
+.notes h2 { font: 600 20px/1.2 var(--font-display); margin: 0; }
+.notes p { margin: 0; color: var(--ink-2); }
+.eq { font: 14px var(--font-mono); background: var(--panel); border-radius: 6px; padding: 12px 14px; overflow-x: auto; white-space: nowrap; color: var(--ink); }
 code { font: 13px var(--font-mono); background: var(--panel); padding: 1px 5px; border-radius: 4px; }
 a { color: var(--accent); }
 </style>
@@ -102,127 +118,394 @@ a { color: var(--accent); }
 <body>
 <div class="wrap">
   <header>
-    <span class="eyebrow">Overdamped Langevin dynamics</span>
-    <h1>How a barrier slows a Brownian particle</h1>
-    <p class="lede">A particle jiggles in a double-well potential, pushed around by thermal noise. Drag the slider to raise the barrier between the wells and watch the hops between them get rarer.</p>
+    <span class="eyebrow">Overdamped Langevin dynamics · runs Python in your browser</span>
+    <h1>Double-well lab</h1>
+    <p class="lede">A Brownian particle in a double-well potential, simulated live by the <code>overdamped_ld</code> Python package running in the page. Move any slider and the trajectory is recomputed and replayed.</p>
   </header>
 
-  <section class="stage">
-    <div class="viewer">
-      <img id="anim" alt="Animation of the particle on the potential and its trajectory over time" width="640" height="460">
-      <button class="play" id="play" type="button" hidden>Play animation</button>
-      <p class="caption" id="caption"></p>
+  <section class="lab">
+    <div class="stage">
+      <div class="canvas-box">
+        <canvas id="cv-pot" aria-label="Potential energy curve with the particle on it"></canvas>
+      </div>
+      <div class="canvas-box">
+        <canvas id="cv-traj" aria-label="Particle position over time, with a histogram of visited positions"></canvas>
+        <div class="overlay" id="overlay"><div><div class="spinner"></div><span id="overlay-text">Starting Python (Pyodide + NumPy)…</span></div></div>
+      </div>
+      <div class="transport">
+        <button type="button" id="btn-play" aria-pressed="false">Pause</button>
+        <button type="button" id="btn-restart">Restart</button>
+        <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Playback position">
+        <span class="seg" role="group" aria-label="Playback speed">
+          <button type="button" data-speed="0.5">½×</button>
+          <button type="button" data-speed="1" aria-pressed="true">1×</button>
+          <button type="button" data-speed="3">3×</button>
+          <button type="button" data-speed="10">10×</button>
+        </span>
+      </div>
+      <div class="status" id="status" aria-live="polite"></div>
     </div>
 
-    <div class="controls">
-      <div>
-        <div class="readout" aria-live="polite"><span class="value" id="eb-value">4</span><span class="unit"><i>k</i><sub>B</sub><i>T</i> barrier</span></div>
-      </div>
-      <div>
-        <label class="slider-label" for="eb">Barrier height <i>E</i><sub>b</sub></label>
-        <input type="range" id="eb" min="0" max="9" step="1" value="3">
-        <div class="ticks" id="ticks"></div>
-      </div>
+    <div class="rack">
+      <fieldset id="fs-pot"><legend>Potential</legend></fieldset>
+      <fieldset id="fs-bath"><legend>Heat bath</legend></fieldset>
+      <fieldset id="fs-int"><legend>Integration</legend></fieldset>
+      <fieldset id="fs-start">
+        <legend>Start</legend>
+        <div class="seed-row">
+          <label for="seed">Seed</label>
+          <input type="number" id="seed" min="0" max="999999" step="1" value="7">
+          <button type="button" id="btn-noise">New noise</button>
+        </div>
+      </fieldset>
 
       <dl class="stats">
-        <dt>Hops in this clip<small id="clip-note">over 150 time units</small></dt><dd id="s-hops">–</dd>
-        <dt>Time spent in the right well</dt><dd id="s-right">–</dd>
-        <dt>Mean wait for a hop<small>exact first-passage time</small></dt><dd id="s-tau">–</dd>
-        <dt>Kramers estimate<small>accurate for high barriers</small></dt><dd id="s-kr">–</dd>
+        <dt>Barrier / thermal energy<small><i>E</i><sub>b</sub> / <i>k</i><sub>B</sub><i>T</i></small></dt><dd id="o-ratio">–</dd>
+        <dt>Diffusion constant<small><i>D</i> = <i>k</i><sub>B</sub><i>T</i> / ζ</small></dt><dd id="o-D">–</dd>
+        <dt>Hops in this run</dt><dd id="o-hops">–</dd>
+        <dt>Time in the right well</dt><dd id="o-right">–</dd>
+        <dt>Mean stay in a well<small>from this run</small></dt><dd id="o-dwell">–</dd>
+        <dt>Mean wait for a hop<small>exact first-passage time, −d → +d</small></dt><dd id="o-tau">–</dd>
+        <dt>Kramers estimate<small>1/<i>k</i>, accurate for high barriers</small></dt><dd id="o-kr">–</dd>
       </dl>
-
-      <div class="chart-card">
-        <div class="chart-title">Mean wait for a hop vs barrier (log scale)</div>
-        <svg class="chart" id="chart" viewBox="0 0 340 190" role="img" aria-label="Mean first-passage time grows exponentially with barrier height"></svg>
-        <div class="legend"><span><i class="swatch"></i>Exact</span><span><i class="swatch dash"></i>Kramers</span></div>
-      </div>
     </div>
   </section>
 
-  <section class="explain">
-    <h2>What you are watching</h2>
-    <p>The top panel is the potential <i>U</i>(<i>x</i>) = <i>E</i><sub>b</sub>[(<i>x</i>/<i>d</i>)² − 1]² with the particle on it. The bottom panel traces its position over time. In the overdamped limit there is no inertia: each step is a drift down the slope plus a Gaussian kick.</p>
+  <section class="notes">
+    <h2>What is being computed</h2>
+    <p>The potential is <i>U</i>(<i>x</i>) = <i>E</i><sub>b</sub>[(<i>x</i>/<i>d</i>)² − 1]². In the overdamped limit the particle has no inertia, so each time step is a drift down the slope plus a Gaussian kick (Euler–Maruyama):</p>
     <div class="eq">x<sub>j+1</sub> = x<sub>j</sub> − (Δt/ζ)·U′(x<sub>j</sub>) + √(2DΔt)·ξ<sub>j</sub>,&nbsp;&nbsp; ξ<sub>j</sub> ~ N(0,1),&nbsp;&nbsp; D = k<sub>B</sub>T/ζ</div>
-    <p>Every animation uses the same sequence of random kicks, so the only difference between them is the barrier. A hop is counted when the particle reaches the far well (|<i>x</i>| ≥ 0.5), so jitter near the top does not count.</p>
-    <p>The wait between hops grows as <i>e</i><sup><i>E</i><sub>b</sub>/<i>k</i><sub>B</sub><i>T</i></sup>: each extra <i>k</i><sub>B</sub><i>T</i> of barrier makes a hop about 2.7 times rarer. At the higher barriers the expected wait is longer than the whole clip, so the particle stays in the left well.</p>
-    <p>Animations are rendered with matplotlib by <code>overdamped-ld web</code> from the <a href="https://github.com/scichemcode/Overdamped_LD">Overdamped_LD</a> package.</p>
+    <p>Only the ratio <i>E</i><sub>b</sub>/<i>k</i><sub>B</sub><i>T</i> sets how often the particle hops: the mean wait grows roughly as <i>e</i><sup><i>E</i><sub>b</sub>/<i>k</i><sub>B</sub><i>T</i></sup>. Friction and well separation only stretch the time axis. Keeping the seed fixed reuses the same random kicks, so you can change one parameter and see its effect alone.</p>
+    <p>The histogram beside the trajectory fills in as the run plays. The dashed curve is the Boltzmann distribution <i>e</i><sup>−<i>U</i>/<i>k</i><sub>B</sub><i>T</i></sup>, which a long enough run should match. A hop is counted when the particle reaches the other well (|<i>x</i>| ≥ <i>d</i>/2). Large time steps make the integration inaccurate, and the page warns you when that happens.</p>
+    <p>The simulation is <a href="https://github.com/scichemcode/Overdamped_LD">overdamped_ld</a> v0.2.0, run by <a href="https://pyodide.org">Pyodide</a>. The page is regenerated with <code>overdamped-ld web</code>.</p>
   </section>
 </div>
 
 <script>
-const DATA = {"clip_time":150.0,"seed":7,"kT":1.0,"friction":1.0,"dt":0.001,"loop_seconds":10.0,"heights":[{"barrier":1,"hops":73,"frac_right":0.519,"tau_exact":3.569361474203531,"tau_kramers":3.0192519891916545},{"barrier":2,"hops":49,"frac_right":0.524,"tau_exact":5.129231188164624,"tau_kramers":4.103588908879249},{"barrier":3,"hops":25,"frac_right":0.403,"tau_exact":8.879984281063214,"tau_kramers":7.436474108315031},{"barrier":4,"hops":7,"frac_right":0.283,"tau_exact":17.31587166273068,"tau_kramers":15.160824327329198},{"barrier":5,"hops":4,"frac_right":0.225,"tau_exact":36.483498876466236,"tau_kramers":32.96911461875103},{"barrier":6,"hops":0,"frac_right":0.0,"tau_exact":80.90721469129205,"tau_kramers":74.68278764044533},{"barrier":7,"hops":0,"frac_right":0.0,"tau_exact":185.81298076601752,"tau_kramers":174.00759817858997},{"barrier":8,"hops":0,"frac_right":0.0,"tau_exact":437.5043226114269,"tau_kramers":413.87648062483123},{"barrier":9,"hops":0,"frac_right":0.0,"tau_exact":1049.3215721722136,"tau_kramers":1000.0292591191652},{"barrier":10,"hops":0,"frac_right":0.0,"tau_exact":2552.7091104743113,"tau_kramers":2446.52522669189}],"curve":[{"barrier":1.0,"tau_exact":3.569361474203531,"tau_kramers":3.0192519891916545},{"barrier":1.152542372881356,"tau_exact":3.711397449410433,"tau_kramers":3.051341184598363},{"barrier":1.305084745762712,"tau_exact":3.8851679602148703,"tau_kramers":3.138753927628845},{"barrier":1.457627118644068,"tau_exact":4.091726333338836,"tau_kramers":3.2733907730058354},{"barrier":1.6101694915254239,"tau_exact":4.333080340243414,"tau_kramers":3.451604373829111},{"barrier":1.7627118644067798,"tau_exact":4.612029376736581,"tau_kramers":3.6724812523566372},{"barrier":1.9152542372881356,"tau_exact":4.932104181998568,"tau_kramers":3.936976242360916},{"barrier":2.0677966101694913,"tau_exact":5.297564334647437,"tau_kramers":4.247464107873997},{"barrier":2.2203389830508478,"tau_exact":5.713432779587595,"tau_kramers":4.60751293881375},{"barrier":2.3728813559322033,"tau_exact":6.185557521281249,"tau_kramers":5.021785221199513},{"barrier":2.5254237288135597,"tau_exact":6.720695991906552,"tau_kramers":5.496018834072713},{"barrier":2.6779661016949152,"tau_exact":7.326620491978287,"tau_kramers":6.037062952768842},{"barrier":2.830508474576271,"tau_exact":8.012244808798075,"tau_kramers":6.652955693263013},{"barrier":2.983050847457627,"tau_exact":8.787773245830913,"tau_kramers":7.353036898333292},{"barrier":3.135593220338983,"tau_exact":9.66487413954355,"tau_kramers":8.148093342485133},{"barrier":3.288135593220339,"tau_exact":10.656880654301695,"tau_kramers":9.050536095889179},{"barrier":3.440677966101695,"tau_exact":11.779022317562415,"tau_kramers":10.074611496775054},{"barrier":3.593220338983051,"tau_exact":13.048691439912933,"tau_kramers":11.236648493040333},{"barrier":3.745762711864407,"tau_exact":14.485749293452711,"tau_kramers":12.555346229643625},{"barrier":3.898305084745763,"tau_exact":16.11287772509087,"tau_kramers":14.052106800301877},{"barrier":4.050847457627119,"tau_exact":17.95598278223775,"tau_kramers":15.751419128522206},{"barrier":4.203389830508475,"tau_exact":20.04465794975501,"tau_kramers":17.681301049218746},{"barrier":4.3559322033898304,"tau_exact":22.412715762179722,"tau_kramers":19.873807871033826},{"barrier":4.508474576271187,"tau_exact":25.09879788925771,"tau_kramers":22.36561704812406},{"barrier":4.661016949152542,"tau_exact":28.147075323572064,"tau_kramers":25.19870011379867},{"barrier":4.813559322033898,"tau_exact":31.608052057950545,"tau_kramers":28.42109476286531},{"barrier":4.966101694915254,"tau_exact":35.53948766315798,"tau_kramers":32.08779195317325},{"barrier":5.118644067796611,"tau_exact":40.00745650408195,"tau_kramers":36.261755171889554},{"barrier":5.271186440677966,"tau_exact":45.087564012244286,"tau_kramers":41.015091625939775},{"barrier":5.423728813559323,"tau_exact":50.86634351812195,"tau_kramers":46.430398122656314},{"barrier":5.576271186440678,"tau_exact":57.44286070078019,"tau_kramers":52.60230786757227},{"barrier":5.728813559322035,"tau_exact":64.93055680654734,"tau_kramers":59.63926839211939},{"barrier":5.88135593220339,"tau_exact":73.45936650574444,"tau_kramers":67.66558541597384},{"barrier":6.033898305084746,"tau_exact":83.17815169236913,"tau_kramers":76.82377274052007},{"barrier":6.186440677966102,"tau_exact":94.25749879640512,"tau_kramers":87.27725436922101},{"barrier":6.338983050847458,"tau_exact":106.89293439925183,"tau_kramers":99.21347208200476},{"barrier":6.491525423728814,"tau_exact":121.30862226652329,"tau_kramers":112.84745979764007},{"barrier":6.6440677966101696,"tau_exact":137.76161450854826,"tau_kramers":128.42595540613286},{"barrier":6.796610169491526,"tau_exact":156.54674064297228,"tau_kramers":146.23213153367473},{"barrier":6.9491525423728815,"tau_exact":178.0022310916485,"tau_kramers":166.59103913637034},{"barrier":7.101694915254238,"tau_exact":202.51618635629814,"tau_kramers":189.87587216079598},{"barrier":7.254237288135593,"tau_exact":230.53402008506959,"tau_kramers":216.51517805374232},{"barrier":7.40677966101695,"tau_exact":262.5670238128611,"tau_kramers":247.00115799023473},{"barrier":7.559322033898305,"tau_exact":299.20222373314624,"tau_kramers":281.89922271069634},{"barrier":7.711864406779662,"tau_exact":341.1137259018516,"tau_kramers":321.8589952684464},{"barrier":7.864406779661017,"tau_exact":389.0757763195141,"tau_kramers":367.6269813113818},{"barrier":8.016949152542374,"tau_exact":443.97779700497483,"tau_kramers":420.0611613618524},{"barrier":8.16949152542373,"tau_exact":506.8416991760901,"tau_kramers":480.14779861541484},{"barrier":8.322033898305085,"tau_exact":578.8418208155301,"tau_kramers":549.0208008600612},{"barrier":8.474576271186441,"tau_exact":661.3278891752822,"tau_kramers":627.9840271558003},{"barrier":8.627118644067796,"tau_exact":755.8514702630853,"tau_kramers":718.5369899884055},{"barrier":8.779661016949152,"tau_exact":864.1964383295863,"tau_kramers":822.4044729667892},{"barrier":8.932203389830509,"tau_exact":988.4140803059963,"tau_kramers":941.5706642105887},{"barrier":9.084745762711865,"tau_exact":1130.8635447269994,"tau_kramers":1078.3184980374244},{"barrier":9.237288135593221,"tau_exact":1294.2584538743345,"tau_kramers":1235.2750043309588},{"barrier":9.389830508474576,"tau_exact":1481.720623961378,"tau_kramers":1415.4635882744867},{"barrier":9.542372881355933,"tau_exact":1696.8419837683618,"tau_kramers":1622.364305539645},{"barrier":9.694915254237289,"tau_exact":1943.7559502614415,"tau_kramers":1859.9833624961398},{"barrier":9.847457627118645,"tau_exact":2227.2197138870947,"tau_kramers":2132.9332609897915},{"barrier":10.0,"tau_exact":2552.7091104743113,"tau_kramers":2446.52522669189}]};
-(() => {
-  const H = DATA.heights;
-  const $ = (id) => document.getElementById(id);
-  const slider = $("eb"), img = $("anim"), play = $("play");
-  slider.max = H.length - 1;
-  $("ticks").innerHTML = H.map(h => `<span>${h.barrier}</span>`).join("");
-  $("clip-note").textContent = `over ${DATA.clip_time} time units`;
+const PY_SOURCES = {"__init__.py": "\"\"\"Overdamped Langevin dynamics in one dimension.\n\nQuick start::\n\n    import overdamped_ld as old\n\n    pot = old.DoubleWell.in_kT(4)                  # 4 kT barrier\n    traj = old.simulate(pot, x0=-1, n_steps=200_000, n_walkers=64, stride=50, seed=0)\n    states = old.assign_states(traj.x)\n    k_sim = old.transition_rate(states, traj.save_interval)\n    k_kramers = old.kramers_rate(pot)\n\"\"\"\n\nfrom .analysis import (\n    assign_states,\n    boltzmann_density,\n    count_transitions,\n    dwell_times,\n    kramers_rate,\n    mfpt_exact,\n    populations,\n    transition_rate,\n)\nfrom .integrators import Trajectory, first_passage_times, simulate\nfrom .potentials import DoubleWell, Potential\n\n__version__ = \"0.2.0\"\n\n__all__ = [\n    \"DoubleWell\",\n    \"Potential\",\n    \"Trajectory\",\n    \"assign_states\",\n    \"boltzmann_density\",\n    \"count_transitions\",\n    \"dwell_times\",\n    \"first_passage_times\",\n    \"kramers_rate\",\n    \"mfpt_exact\",\n    \"populations\",\n    \"simulate\",\n    \"transition_rate\",\n]\n", "potentials.py": "\"\"\"One-dimensional potential energy surfaces.\n\nAny object exposing ``energy(x)``, ``force(x)`` and ``curvature(x)`` (all\nvectorised over NumPy arrays) can be used with the integrators and analysis\ntools in this package. :class:`DoubleWell` is the reference implementation.\n\"\"\"\n\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\nfrom typing import Protocol, runtime_checkable\n\nimport numpy as np\nfrom numpy.typing import ArrayLike, NDArray\n\n\n@runtime_checkable\nclass Potential(Protocol):\n    \"\"\"Interface expected by :func:`overdamped_ld.simulate` and friends.\"\"\"\n\n    def energy(self, x: ArrayLike) -> NDArray[np.float64]: ...\n\n    def force(self, x: ArrayLike) -> NDArray[np.float64]: ...\n\n    def curvature(self, x: ArrayLike) -> NDArray[np.float64]: ...\n\n\n@dataclass(frozen=True)\nclass DoubleWell:\n    r\"\"\"Symmetric quartic double well.\n\n    .. math::\n\n        U(x) = E_b \\left[ \\left(\\frac{x}{d}\\right)^2 - 1 \\right]^2\n\n    Minima sit at :math:`x = \\pm d` with :math:`U = 0`; the barrier top is at\n    :math:`x = 0` with :math:`U = E_b`.\n\n    Parameters\n    ----------\n    barrier:\n        Barrier height :math:`E_b` in absolute energy units (the same units as\n        ``kT`` passed to the integrator).\n    d:\n        Half the distance between the two minima.\n    \"\"\"\n\n    barrier: float = 1.0\n    d: float = 1.0\n\n    def __post_init__(self) -> None:\n        if self.barrier < 0:\n            raise ValueError(\"barrier must be non-negative\")\n        if self.d <= 0:\n            raise ValueError(\"d must be positive\")\n\n    @classmethod\n    def in_kT(cls, barrier_kT: float, kT: float = 1.0, d: float = 1.0) -> DoubleWell:\n        \"\"\"Build a double well whose barrier is ``barrier_kT`` multiples of ``kT``.\"\"\"\n        return cls(barrier=barrier_kT * kT, d=d)\n\n    def energy(self, x: ArrayLike) -> NDArray[np.float64]:\n        x = np.asarray(x, dtype=float)\n        return self.barrier * ((x / self.d) ** 2 - 1.0) ** 2\n\n    def force(self, x: ArrayLike) -> NDArray[np.float64]:\n        \"\"\":math:`F(x) = -\\\\mathrm{d}U/\\\\mathrm{d}x`.\"\"\"\n        x = np.asarray(x, dtype=float)\n        return -4.0 * self.barrier * x * ((x / self.d) ** 2 - 1.0) / self.d**2\n\n    def curvature(self, x: ArrayLike) -> NDArray[np.float64]:\n        \"\"\":math:`U''(x)`.\"\"\"\n        x = np.asarray(x, dtype=float)\n        return self.barrier * (12.0 * x**2 / self.d**4 - 4.0 / self.d**2)\n\n    def scalar_force(self):\n        \"\"\"Return a plain-float ``F(x)`` closure.\n\n        :func:`overdamped_ld.simulate` uses it for single-walker runs, where\n        per-step NumPy overhead would dominate. Optional for other potentials.\n        \"\"\"\n        a = -4.0 * self.barrier / self.d**2\n        inv_d2 = 1.0 / self.d**2\n\n        def force(x: float) -> float:\n            return a * x * (x * x * inv_d2 - 1.0)\n\n        return force\n\n    @property\n    def minima(self) -> tuple[float, float]:\n        return (-self.d, self.d)\n\n    @property\n    def saddle(self) -> float:\n        return 0.0\n", "integrators.py": "r\"\"\"Euler\u2013Maruyama integration of overdamped Langevin dynamics.\n\nThe equation of motion is\n\n.. math::\n\n    \\zeta\\,\\dot x = F(x) + \\sqrt{2 \\zeta k_B T}\\,\\eta(t),\n\nwith friction coefficient :math:`\\zeta` (``friction``; equal to\n:math:`m\\gamma` in the notation of the original notebook) and\n:math:`\\langle \\eta(t)\\eta(t')\\rangle = \\delta(t-t')`. Discretised:\n\n.. math::\n\n    x_{j+1} = x_j + \\frac{\\Delta t}{\\zeta} F(x_j) + \\sqrt{2 D \\Delta t}\\,\\xi_j,\n    \\qquad \\xi_j \\sim \\mathcal N(0, 1),\\quad D = k_B T / \\zeta.\n\nAll routines are vectorised over many independent walkers, which is far\ncheaper in NumPy than one long trajectory.\n\"\"\"\n\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\n\nimport numpy as np\nfrom numpy.typing import ArrayLike, NDArray\n\nfrom .potentials import Potential\n\n_NOISE_CHUNK = 2048  # steps of Gaussian noise drawn per RNG call\n\n\n@dataclass\nclass Trajectory:\n    \"\"\"Positions saved every ``stride`` steps.\n\n    Attributes\n    ----------\n    time:\n        Shape ``(n_frames,)``.\n    x:\n        Shape ``(n_frames, n_walkers)``.\n    \"\"\"\n\n    time: NDArray[np.float64]\n    x: NDArray[np.float64]\n    dt: float\n    stride: int\n    kT: float\n    friction: float\n    params: dict = field(default_factory=dict)\n\n    @property\n    def n_walkers(self) -> int:\n        return self.x.shape[1]\n\n    @property\n    def save_interval(self) -> float:\n        return self.dt * self.stride\n\n    def save(self, path: str) -> None:\n        \"\"\"Write to a compressed ``.npz`` file.\"\"\"\n        np.savez_compressed(\n            path,\n            time=self.time,\n            x=self.x,\n            dt=self.dt,\n            stride=self.stride,\n            kT=self.kT,\n            friction=self.friction,\n            **{f\"param_{k}\": v for k, v in self.params.items()},\n        )\n\n    @classmethod\n    def load(cls, path: str) -> Trajectory:\n        with np.load(path) as f:\n            params = {k[len(\"param_\"):]: f[k].item() for k in f.files if k.startswith(\"param_\")}\n            return cls(\n                time=f[\"time\"],\n                x=f[\"x\"],\n                dt=float(f[\"dt\"]),\n                stride=int(f[\"stride\"]),\n                kT=float(f[\"kT\"]),\n                friction=float(f[\"friction\"]),\n                params=params,\n            )\n\n\ndef _check(dt: float, kT: float, friction: float) -> None:\n    if dt <= 0:\n        raise ValueError(\"dt must be positive\")\n    if kT < 0:\n        raise ValueError(\"kT must be non-negative\")\n    if friction <= 0:\n        raise ValueError(\"friction must be positive\")\n\n\ndef simulate(\n    potential: Potential,\n    x0: ArrayLike,\n    n_steps: int,\n    dt: float = 1e-3,\n    kT: float = 1.0,\n    friction: float = 1.0,\n    n_walkers: int | None = None,\n    stride: int = 1,\n    seed: int | np.random.Generator | None = None,\n) -> Trajectory:\n    \"\"\"Integrate overdamped Langevin dynamics for ``n_steps`` steps.\n\n    Parameters\n    ----------\n    potential:\n        Object with a vectorised ``force(x)`` method.\n    x0:\n        Initial position(s). A scalar is broadcast to ``n_walkers`` walkers.\n    n_steps:\n        Number of integration steps (the initial frame is stored in addition).\n    dt, kT, friction:\n        Time step, thermal energy and friction coefficient :math:`\\\\zeta`.\n    n_walkers:\n        Number of independent walkers. Defaults to ``len(x0)`` or 1.\n    stride:\n        Store every ``stride``-th step.\n    seed:\n        Seed or :class:`numpy.random.Generator` for reproducibility.\n    \"\"\"\n    _check(dt, kT, friction)\n    if n_steps < 0:\n        raise ValueError(\"n_steps must be non-negative\")\n    if stride < 1:\n        raise ValueError(\"stride must be >= 1\")\n\n    rng = np.random.default_rng(seed)\n    x0 = np.atleast_1d(np.asarray(x0, dtype=float))\n    if n_walkers is None:\n        n_walkers = x0.size\n    x = np.broadcast_to(x0, (n_walkers,)).copy()\n\n    n_frames = n_steps // stride + 1\n    out = np.empty((n_frames, n_walkers))\n    out[0] = x\n\n    mobility_dt = dt / friction\n    sigma = np.sqrt(2.0 * kT * dt / friction)\n\n    if n_walkers == 1 and hasattr(potential, \"scalar_force\"):\n        _simulate_scalar(potential.scalar_force(), float(x[0]), n_steps, stride, mobility_dt, sigma, rng, out[:, 0])\n    else:\n        _simulate_vector(potential, x, n_steps, stride, mobility_dt, sigma, rng, out)\n\n    time = np.arange(n_frames) * dt * stride\n    params = {k: v for k, v in vars(potential).items() if np.isscalar(v)} if hasattr(potential, \"__dict__\") else {}\n    params[\"potential\"] = type(potential).__name__\n    return Trajectory(time=time, x=out, dt=dt, stride=stride, kT=kT, friction=friction, params=params)\n\n\ndef _simulate_scalar(force, x, n_steps, stride, mobility_dt, sigma, rng, out) -> None:\n    \"\"\"Single walker with plain floats: ~10x faster than NumPy for one walker.\n\n    Draws the same random numbers in the same order as the vector path.\n    \"\"\"\n    frame = 1\n    step = 0\n    while step < n_steps:\n        chunk = min(_NOISE_CHUNK, n_steps - step)\n        noise = (rng.standard_normal((chunk, 1))[:, 0] * sigma).tolist()\n        for xi in noise:\n            x += mobility_dt * force(x) + xi\n            step += 1\n            if step % stride == 0:\n                out[frame] = x\n                frame += 1\n\n\ndef _simulate_vector(potential, x, n_steps, stride, mobility_dt, sigma, rng, out) -> None:\n    n_walkers = x.size\n    frame = 1\n    step = 0\n    while step < n_steps:\n        chunk = min(_NOISE_CHUNK, n_steps - step)\n        noise = rng.standard_normal((chunk, n_walkers))\n        noise *= sigma\n        for k in range(chunk):\n            x += mobility_dt * potential.force(x) + noise[k]\n            step += 1\n            if step % stride == 0:\n                out[frame] = x\n                frame += 1\n\n\ndef first_passage_times(\n    potential: Potential,\n    x0: float,\n    target: float,\n    n_walkers: int = 1000,\n    dt: float = 1e-3,\n    kT: float = 1.0,\n    friction: float = 1.0,\n    max_time: float = np.inf,\n    seed: int | np.random.Generator | None = None,\n) -> NDArray[np.float64]:\n    \"\"\"First time each walker started at ``x0`` reaches ``target``.\n\n    Walkers are removed from the integration as soon as they cross, so the\n    cost is dominated by the slowest walkers. Walkers that have not crossed by\n    ``max_time`` are reported as ``nan``.\n    \"\"\"\n    _check(dt, kT, friction)\n    if x0 == target:\n        return np.zeros(n_walkers)\n\n    rng = np.random.default_rng(seed)\n    direction = 1.0 if target > x0 else -1.0\n\n    x = np.full(n_walkers, float(x0))\n    idx = np.arange(n_walkers)\n    fpt = np.full(n_walkers, np.nan)\n\n    mobility_dt = dt / friction\n    sigma = np.sqrt(2.0 * kT * dt / friction)\n    max_steps = np.inf if np.isinf(max_time) else int(np.ceil(max_time / dt))\n\n    step = 0\n    while x.size and step < max_steps:\n        chunk = int(min(_NOISE_CHUNK, max_steps - step))\n        noise = rng.standard_normal((chunk, x.size)) * sigma\n        for k in range(chunk):\n            x += mobility_dt * potential.force(x) + noise[k]\n            step += 1\n            crossed = direction * (x - target) >= 0\n            if crossed.any():\n                fpt[idx[crossed]] = step * dt\n                keep = ~crossed\n                x, idx = x[keep], idx[keep]\n                noise = noise[:, keep]\n                if not x.size:\n                    break\n    return fpt\n", "analysis.py": "r\"\"\"Trajectory analysis and analytical reference results.\n\nAnalytical results let every simulation be checked against theory:\n\n* :func:`boltzmann_density` \u2014 the stationary distribution\n  :math:`p(x) \\propto e^{-U(x)/k_BT}`.\n* :func:`mfpt_exact` \u2014 the exact 1D mean first-passage time (quadrature).\n* :func:`kramers_rate` \u2014 the high-barrier (Kramers/Smoluchowski) asymptote.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport numpy as np\nfrom numpy.typing import ArrayLike, NDArray\n\nfrom .potentials import Potential\n\n\ndef _cumtrapz(y: NDArray, x: NDArray) -> NDArray:\n    out = np.zeros_like(y)\n    out[1:] = np.cumsum(0.5 * (y[1:] + y[:-1]) * np.diff(x))\n    return out\n\n\n# --------------------------------------------------------------------------\n# Analytical references\n# --------------------------------------------------------------------------\n\n\ndef boltzmann_density(potential: Potential, x: ArrayLike, kT: float = 1.0) -> NDArray[np.float64]:\n    \"\"\"Normalised equilibrium density on the grid ``x`` (must be sorted).\"\"\"\n    x = np.asarray(x, dtype=float)\n    u = potential.energy(x)\n    w = np.exp(-(u - u.min()) / kT)\n    return w / np.trapezoid(w, x)\n\n\ndef mfpt_exact(\n    potential: Potential,\n    start: float,\n    target: float,\n    kT: float = 1.0,\n    friction: float = 1.0,\n    boundary: float | None = None,\n    n_grid: int = 20_001,\n) -> float:\n    r\"\"\"Exact mean first-passage time from ``start`` to ``target`` in 1D.\n\n    With a reflecting wall at ``boundary`` (behind ``start``) and\n    :math:`D = k_BT/\\zeta`,\n\n    .. math::\n\n        \\tau = \\frac{1}{D}\\int_{\\text{start}}^{\\text{target}} \\mathrm{d}y\\;\n               e^{\\beta U(y)} \\int_{\\text{boundary}}^{y} \\mathrm{d}z\\; e^{-\\beta U(z)} .\n\n    For a confining potential the default ``boundary`` (far behind ``start``)\n    reproduces a natural boundary at :math:`\\mp\\infty`.\n    \"\"\"\n    if start == target:\n        return 0.0\n    sign = 1.0 if target > start else -1.0\n    if boundary is None:\n        boundary = start - sign * max(5.0 * abs(target - start), 5.0)\n\n    beta = 1.0 / kT\n    D = kT / friction\n    y = np.linspace(boundary, target, n_grid)  # boundary -> target (may be decreasing)\n    u = potential.energy(y)\n    u0 = u.min()\n    inner = np.abs(_cumtrapz(np.exp(-beta * (u - u0)), y))\n\n    # outer integral only over [start, target]\n    mask = sign * (y - start) >= 0\n    integrand = np.exp(beta * (u[mask] - u0)) * inner[mask]\n    return float(np.abs(np.trapezoid(integrand, y[mask])) / D)\n\n\ndef kramers_rate(\n    potential: Potential,\n    kT: float = 1.0,\n    friction: float = 1.0,\n    minimum: float | None = None,\n    saddle: float | None = None,\n) -> float:\n    r\"\"\"Overdamped Kramers escape rate out of the well at ``minimum``.\n\n    .. math::\n\n        k = \\frac{\\sqrt{U''(x_{\\min})\\,|U''(x_{\\ddagger})|}}{2\\pi\\zeta}\\,\n            e^{-\\Delta U/k_BT}\n\n    Valid when :math:`\\Delta U \\gg k_BT`.\n    \"\"\"\n    if minimum is None:\n        minimum = potential.minima[0]  # type: ignore[attr-defined]\n    if saddle is None:\n        saddle = potential.saddle  # type: ignore[attr-defined]\n    w_min = float(potential.curvature(minimum))\n    w_sad = abs(float(potential.curvature(saddle)))\n    dU = float(potential.energy(saddle) - potential.energy(minimum))\n    return np.sqrt(w_min * w_sad) / (2.0 * np.pi * friction) * np.exp(-dU / kT)\n\n\n# --------------------------------------------------------------------------\n# Trajectory analysis\n# --------------------------------------------------------------------------\n\n\ndef assign_states(x: ArrayLike, core: float = 0.5) -> NDArray[np.int8]:\n    \"\"\"Core-set (hysteresis) state assignment.\n\n    A frame is in state ``+1`` once the walker has entered ``x >= core`` and\n    stays there until it enters ``x <= -core`` (state ``-1``), and vice versa.\n    Frames before the first core visit are ``0``. This removes the spurious\n    \"transitions\" that a single threshold at the barrier top produces when\n    the walker jitters around it.\n\n    ``x`` may be 1D ``(n_frames,)`` or 2D ``(n_frames, n_walkers)``.\n    \"\"\"\n    x = np.asarray(x, dtype=float)\n    squeeze = x.ndim == 1\n    if squeeze:\n        x = x[:, None]\n    raw = np.zeros(x.shape, dtype=np.int8)\n    raw[x >= core] = 1\n    raw[x <= -core] = -1\n    frames = np.arange(x.shape[0])[:, None]\n    last = np.where(raw != 0, frames, 0)\n    np.maximum.accumulate(last, axis=0, out=last)\n    states = np.take_along_axis(raw, last, axis=0)\n    return states[:, 0] if squeeze else states\n\n\ndef count_transitions(states: ArrayLike) -> NDArray[np.int64] | int:\n    \"\"\"Number of ``-1 <-> +1`` switches along axis 0 (per walker if 2D).\"\"\"\n    s = np.asarray(states)\n    flips = (s[1:] != s[:-1]) & (s[:-1] != 0)\n    return flips.sum(axis=0)\n\n\ndef transition_rate(states: ArrayLike, save_interval: float) -> float:\n    \"\"\"Pooled switching rate: total transitions / total assigned time.\n\n    For a symmetric double well this estimates the one-way escape rate ``k``.\n    \"\"\"\n    s = np.asarray(states)\n    n = np.sum(count_transitions(s))\n    t = np.count_nonzero(s[1:] != 0) * save_interval\n    return float(n / t) if t > 0 else np.nan\n\n\ndef dwell_times(states: ArrayLike, save_interval: float) -> dict[int, NDArray[np.float64]]:\n    \"\"\"Durations of completed visits to each state.\n\n    The first and last visit of every walker are censored (their true\n    duration is unknown) and are discarded.\n    \"\"\"\n    s = np.asarray(states)\n    if s.ndim == 1:\n        s = s[:, None]\n    out: dict[int, list[float]] = {-1: [], 1: []}\n    for col in s.T:\n        col = col[col != 0]\n        if col.size == 0:\n            continue\n        edges = np.flatnonzero(np.diff(col)) + 1\n        bounds = np.concatenate(([0], edges, [col.size]))\n        for i in range(1, len(bounds) - 2):  # skip censored first/last\n            out[int(col[bounds[i]])].append((bounds[i + 1] - bounds[i]) * save_interval)\n    return {k: np.asarray(v) for k, v in out.items()}\n\n\ndef populations(states: ArrayLike) -> dict[int, float]:\n    \"\"\"Fraction of assigned frames spent in each state.\"\"\"\n    s = np.asarray(states)\n    assigned = s[s != 0]\n    if assigned.size == 0:\n        return {-1: np.nan, 1: np.nan}\n    return {-1: float(np.mean(assigned == -1)), 1: float(np.mean(assigned == 1))}\n"};
+const PYODIDE_URL = "https://cdn.jsdelivr.net/pyodide/v0.27.2/full/";
 
-  const reduce = matchMedia("(prefers-reduced-motion: reduce)");
-  let playing = !reduce.matches;
+/* ---------------- Python worker ---------------- */
+const DRIVER = `
+import math, time
+import numpy as np
+import overdamped_ld as old
 
-  const theme = () => getComputedStyle(document.documentElement).getPropertyValue("--anim-theme").trim() || "light";
-  const src = (h, still) => `anim/eb${h.barrier}-${theme()}.${still ? "png" : "webp"}`;
-  const fmt = (t) => t >= 1000 ? Math.round(t).toLocaleString() : t >= 100 ? t.toFixed(0) : t.toFixed(1);
+def run(p):
+    p = dict(p)
+    t0 = time.perf_counter()
+    pot = old.DoubleWell(barrier=p["barrier"], d=p["d"])
+    n_steps = max(1, int(round(p["T"] / p["dt"])))
+    stride = max(1, n_steps // 4000)
+    traj = old.simulate(pot, p["x0"], n_steps, p["dt"], p["kT"], p["friction"], stride=stride, seed=int(p["seed"]))
+    x = traj.x[:, 0]
+    elapsed = time.perf_counter() - t0
+    finite = bool(np.all(np.isfinite(x)))
+    out = {"x": np.nan_to_num(x, nan=0.0, posinf=99.0, neginf=-99.0).tolist(), "t_end": float(traj.time[-1]),
+           "steps": n_steps, "elapsed": elapsed, "finite": finite}
+    if finite:
+        s = old.assign_states(x, core=0.5 * pot.d)
+        dw = old.dwell_times(s, traj.save_interval)
+        stays = np.concatenate([dw[-1], dw[1]])
+        out.update(hops=int(old.count_transitions(s)), frac_right=old.populations(s)[1],
+                   mean_dwell=float(stays.mean()) if stays.size else None)
+    out["tau"] = old.mfpt_exact(pot, -pot.d, pot.d, p["kT"], p["friction"])
+    out["tau_kramers"] = 1.0 / old.kramers_rate(pot, p["kT"], p["friction"])
+    return out
+`;
 
-  function show() {
-    const h = H[+slider.value];
-    img.src = src(h, !playing);
-    $("eb-value").textContent = h.barrier;
-    $("s-hops").textContent = h.hops;
-    $("s-right").textContent = `${Math.round(h.frac_right * 100)}%`;
-    $("s-tau").textContent = fmt(h.tau_exact);
-    $("s-kr").textContent = fmt(h.tau_kramers);
-    $("caption").textContent = h.hops === 0
-      ? `At ${h.barrier} kBT the particle stays in the left well for the whole clip. The expected wait is ${fmt(h.tau_exact)} time units.`
-      : `${h.hops} hop${h.hops === 1 ? "" : "s"} in ${DATA.clip_time} time units. Loops every ${DATA.loop_seconds} s.`;
-    play.hidden = !reduce.matches;
-    play.textContent = playing ? "Show still frame" : "Play animation";
-    drawChart(h.barrier);
-    // warm the cache for neighbours so slider moves feel instant
-    for (const d of [-1, 1]) { const n = H[+slider.value + d]; if (n) new Image().src = src(n, !playing); }
-  }
-
-  // --- chart: tau vs barrier, log y ---------------------------------------
-  const svg = $("chart"), W = 340, Hh = 190, m = { l: 44, r: 10, t: 8, b: 26 };
-  const C = DATA.curve;
-  const xMin = C[0].barrier, xMax = C[C.length - 1].barrier;
-  const yLo = Math.log10(Math.min(...C.map(c => c.tau_kramers)));
-  const yHi = Math.log10(Math.max(...C.map(c => c.tau_exact)));
-  const ylo = Math.floor(yLo), yhi = Math.ceil(yHi);
-  const sx = (x) => m.l + (x - xMin) / (xMax - xMin) * (W - m.l - m.r);
-  const sy = (t) => Hh - m.b - (Math.log10(t) - ylo) / (yhi - ylo) * (Hh - m.t - m.b);
-  const path = (key) => C.map((c, i) => `${i ? "L" : "M"}${sx(c.barrier).toFixed(1)},${sy(c[key]).toFixed(1)}`).join("");
-
-  function drawChart(eb) {
-    const h = H.find(d => d.barrier === eb);
-    let g = "";
-    for (let p = ylo; p <= yhi; p++) {
-      const y = sy(10 ** p);
-      g += `<line x1="${m.l}" x2="${W - m.r}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`;
-      g += `<text x="${m.l - 6}" y="${y + 4}" text-anchor="end">10${p === 0 ? "⁰" : sup(p)}</text>`;
+const WORKER_SRC = `
+let py = null;
+self.onmessage = async (e) => {
+  const m = e.data;
+  try {
+    if (m.type === "init") {
+      importScripts(m.url + "pyodide.js");
+      py = await loadPyodide({ indexURL: m.url });
+      await py.loadPackage("numpy");
+      py.FS.mkdirTree("/home/pyodide/overdamped_ld");
+      for (const [name, src] of Object.entries(m.sources)) py.FS.writeFile("/home/pyodide/overdamped_ld/" + name, src);
+      py.runPython("import sys; sys.path.insert(0, '/home/pyodide')");
+      py.runPython(m.driver);
+      self.postMessage({ type: "ready", python: py.runPython("import sys; sys.version.split()[0]"),
+                         numpy: py.runPython("import numpy; numpy.__version__") });
+    } else if (m.type === "run") {
+      const res = py.globals.get("run")(py.toPy(m.params));
+      const out = res.toJs({ dict_converter: Object.fromEntries });
+      res.destroy();
+      self.postMessage({ type: "result", id: m.id, out });
     }
-    for (const d of H) g += `<text x="${sx(d.barrier)}" y="${Hh - 8}" text-anchor="middle">${d.barrier}</text>`;
-    g += `<path d="${path("tau_kramers")}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 3"/>`;
-    g += `<path d="${path("tau_exact")}" fill="none" stroke="var(--accent)" stroke-width="2"/>`;
-    const x = sx(eb), y = sy(h.tau_exact);
-    g += `<line x1="${x}" x2="${x}" y1="${m.t}" y2="${Hh - m.b}" stroke="var(--ball)" stroke-width="1" stroke-dasharray="2 3" opacity=".7"/>`;
-    g += `<circle cx="${x}" cy="${y}" r="5.5" fill="var(--ball)" stroke="var(--bg)" stroke-width="2"/>`;
-    svg.innerHTML = g;
+  } catch (err) {
+    self.postMessage({ type: "error", id: m.id, message: String(err && err.message || err) });
   }
-  function sup(n) { return String(n).split("").map(ch => "⁰¹²³⁴⁵⁶⁷⁸⁹"["0123456789".indexOf(ch)] ?? (ch === "-" ? "⁻" : ch)).join(""); }
+};`;
 
-  slider.addEventListener("input", show);
-  play.addEventListener("click", () => { playing = !playing; show(); });
-  reduce.addEventListener("change", () => { playing = !reduce.matches; show(); });
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", show);
-  new MutationObserver(show).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+/* ---------------- parameters ---------------- */
+const PARAMS = [
+  { id: "barrier", fs: "fs-pot", label: "Barrier height <i>E</i><sub>b</sub>", min: 0.2, max: 12, step: 0.1, value: 4, fmt: v => v.toFixed(1) },
+  { id: "d", fs: "fs-pot", label: "Well position <i>d</i>", min: 0.5, max: 2, step: 0.05, value: 1, fmt: v => "±" + v.toFixed(2) },
+  { id: "kT", fs: "fs-bath", label: "Temperature <i>k</i><sub>B</sub><i>T</i>", min: 0.1, max: 3, step: 0.05, value: 1, fmt: v => v.toFixed(2) },
+  { id: "friction", fs: "fs-bath", label: "Friction ζ", min: 0.2, max: 5, step: 0.1, value: 1, fmt: v => v.toFixed(1) },
+  { id: "dt", fs: "fs-int", label: "Time step Δ<i>t</i>", min: -4, max: -1.3, step: 0.05, value: -3, log: true, fmt: v => v.toExponential(1) },
+  { id: "T", fs: "fs-int", label: "Run length", min: 1, max: 3, step: 0.01, value: Math.log10(200), log: true, fmt: v => v.toFixed(0) },
+  { id: "x0", fs: "fs-start", label: "Start position <i>x</i><sub>0</sub>", min: -2.5, max: 2.5, step: 0.05, value: -1, fmt: v => v.toFixed(2), before: "seed-row" },
+];
 
-  const start = H.findIndex(h => h.barrier === 4);
-  slider.value = start >= 0 ? start : 0;
-  show();
-})();
+const $ = id => document.getElementById(id);
+const P = {};
+for (const p of PARAMS) {
+  const div = document.createElement("div");
+  div.className = "param";
+  div.innerHTML = `<label for="p-${p.id}">${p.label}</label><output id="v-${p.id}" for="p-${p.id}"></output>
+    <input type="range" id="p-${p.id}" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.value}">`;
+  const fs = $(p.fs);
+  const seedRow = p.before ? fs.querySelector("." + p.before) : null;
+  seedRow ? fs.insertBefore(div, seedRow) : fs.appendChild(div);
+  const input = div.querySelector("input");
+  const read = () => { const raw = +input.value; P[p.id] = p.log ? Number((10 ** raw).toPrecision(2)) : raw; $("v-" + p.id).textContent = p.fmt(P[p.id]); };
+  read();
+  input.addEventListener("input", () => { read(); onParams(); });
+}
+P.seed = +$("seed").value;
+$("seed").addEventListener("change", () => { P.seed = Math.max(0, Math.floor(+$("seed").value || 0)); $("seed").value = P.seed; onParams(); });
+$("btn-noise").addEventListener("click", () => { P.seed = Math.floor(Math.random() * 1e6); $("seed").value = P.seed; onParams(); });
+
+/* ---------------- theme ---------------- */
+let C = {};
+function readTheme() {
+  const cs = getComputedStyle(document.documentElement);
+  for (const k of ["bg", "panel", "ink", "ink-2", "muted", "line", "accent", "ball", "warn"]) C[k] = cs.getPropertyValue("--" + k).trim();
+  C.mono = cs.getPropertyValue("--font-mono").trim();
+}
+readTheme();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { readTheme(); draw(); });
+new MutationObserver(() => { readTheme(); draw(); }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+/* ---------------- canvas helpers ---------------- */
+const cvPot = $("cv-pot"), cvTraj = $("cv-traj");
+function fit(cv) {
+  const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, W: r.width, H: r.height };
+}
+new ResizeObserver(() => draw()).observe(cvPot);
+
+const XR = 3; // x axis spans [-3, 3] in both panels
+const U = x => P.barrier * ((x / P.d) ** 2 - 1) ** 2;
+const niceTicks = (lo, hi, n = 5) => {
+  const span = hi - lo, step0 = span / n, mag = 10 ** Math.floor(Math.log10(step0));
+  const step = [1, 2, 2.5, 5, 10].map(s => s * mag).find(s => span / s <= n) || mag * 10;
+  const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(10)); return out;
+};
+function axisText(ctx, s, x, y, align = "center", base = "top") {
+  ctx.fillStyle = C.muted; ctx.font = `11px ${C.mono}`; ctx.textAlign = align; ctx.textBaseline = base; ctx.fillText(s, x, y);
+}
+
+/* ---------------- playback state ---------------- */
+let run = null;            // latest result from Python
+let head = 0;              // playhead in [0, 1]
+let playing = true, speed = 1, lastTs = null;
+const BASE_SECONDS = 14;   // a run plays in this many seconds at 1x
+
+function drawPotential(i) {
+  const { ctx, W, H } = fit(cvPot);
+  const m = { l: 44, r: 14, t: 14, b: 40 };
+  const ymax = Math.max(1.7 * P.barrier, 3 * P.kT);
+  const ymin = -0.08 * ymax;
+  const sx = x => m.l + (x + XR) / (2 * XR) * (W - m.l - m.r);
+  const sy = u => H - m.b - (u - ymin) / (ymax - ymin) * (H - m.t - m.b);
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+
+  ctx.lineWidth = 1; ctx.strokeStyle = C.line;
+  for (const v of niceTicks(0, ymax, 4)) { ctx.beginPath(); ctx.moveTo(m.l, sy(v)); ctx.lineTo(W - m.r, sy(v)); ctx.stroke(); axisText(ctx, String(v), m.l - 6, sy(v), "right", "middle"); }
+  for (const v of [-3, -2, -1, 0, 1, 2, 3]) axisText(ctx, String(v), sx(v), H - m.b + 8);
+  axisText(ctx, "position x", (m.l + W - m.r) / 2, H - 14);
+  ctx.save(); ctx.translate(12, (m.t + H - m.b) / 2); ctx.rotate(-Math.PI / 2); axisText(ctx, "U(x)", 0, 0, "center", "middle"); ctx.restore();
+
+  // potential curve (clipped to the plot)
+  ctx.save(); ctx.beginPath(); ctx.rect(m.l, m.t, W - m.l - m.r, H - m.t - m.b); ctx.clip();
+  ctx.beginPath();
+  for (let k = 0; k <= 400; k++) { const x = -XR + 2 * XR * k / 400; const y = sy(U(x)); k ? ctx.lineTo(sx(x), y) : ctx.moveTo(sx(x), y); }
+  ctx.strokeStyle = C.accent; ctx.lineWidth = 2.2; ctx.stroke();
+
+  // thermal-energy scale bar at the right minimum
+  const bx = sx(P.d) + 14;
+  ctx.strokeStyle = C["ink-2"]; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(bx, sy(0)); ctx.lineTo(bx, sy(P.kT)); ctx.moveTo(bx - 4, sy(0)); ctx.lineTo(bx + 4, sy(0)); ctx.moveTo(bx - 4, sy(P.kT)); ctx.lineTo(bx + 4, sy(P.kT)); ctx.stroke();
+  ctx.fillStyle = C["ink-2"]; ctx.font = `italic 12px Georgia, serif`; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  ctx.fillText("kT", bx + 7, sy(P.kT / 2));
+
+  // particle + trail
+  if (run && run.finite) {
+    const xs = run.x, n = xs.length, trail = 14, gap = Math.max(1, Math.round(n / 800));
+    for (let k = trail; k >= 1; k--) {
+      const j = i - k * gap; if (j < 0) continue;
+      ctx.globalAlpha = 0.45 * (1 - k / (trail + 1));
+      ctx.beginPath(); ctx.arc(sx(xs[j]), sy(U(xs[j])), 2 + 4 * (1 - k / trail), 0, 2 * Math.PI); ctx.fillStyle = C.ball; ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    const x = xs[i];
+    ctx.beginPath(); ctx.arc(sx(x), sy(U(x)), 7, 0, 2 * Math.PI); ctx.fillStyle = C.ball; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = C.bg; ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawTrajectory(i) {
+  const { ctx, W, H } = fit(cvTraj);
+  const hw = Math.min(90, W * 0.16);                  // histogram strip width
+  const m = { l: 44, r: 14 + hw + 10, t: 10, b: 40 };
+  const tEnd = run ? run.t_end : P.T;
+  const sx = t => m.l + t / tEnd * (W - m.l - m.r);
+  const sy = x => m.t + (XR - x) / (2 * XR) * (H - m.t - m.b);
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+
+  ctx.lineWidth = 1;
+  for (const v of [-2, 0, 2]) { ctx.strokeStyle = C.line; ctx.beginPath(); ctx.moveTo(m.l, sy(v)); ctx.lineTo(W - m.r, sy(v)); ctx.stroke(); }
+  for (const v of [-3, -2, -1, 0, 1, 2, 3]) axisText(ctx, String(v), m.l - 6, sy(v), "right", "middle");
+  ctx.setLineDash([4, 4]); ctx.strokeStyle = C.muted;
+  for (const v of [-P.d, P.d]) { ctx.beginPath(); ctx.moveTo(m.l, sy(v)); ctx.lineTo(W - 14, sy(v)); ctx.stroke(); }
+  ctx.setLineDash([]);
+  for (const v of niceTicks(0, tEnd, 6)) axisText(ctx, String(v), sx(v), H - m.b + 8);
+  axisText(ctx, "time", (m.l + W - m.r) / 2, H - 14);
+  ctx.save(); ctx.translate(12, (m.t + H - m.b) / 2); ctx.rotate(-Math.PI / 2); axisText(ctx, "x(t)", 0, 0, "center", "middle"); ctx.restore();
+
+  if (!run || !run.finite) return;
+  const xs = run.x, n = xs.length;
+  ctx.save(); ctx.beginPath(); ctx.rect(m.l, m.t, W - m.l - m.r, H - m.t - m.b); ctx.clip();
+  ctx.beginPath();
+  for (let j = 0; j <= i; j++) { const X = sx(j / (n - 1) * tEnd), Y = sy(xs[j]); j ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }
+  ctx.strokeStyle = C.accent; ctx.lineWidth = 1.1; ctx.stroke();
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(sx(i / (n - 1) * tEnd), sy(xs[i]), 4.5, 0, 2 * Math.PI); ctx.fillStyle = C.ball; ctx.fill();
+
+  // histogram of positions visited so far + Boltzmann reference
+  const x0 = W - 14 - hw, bins = 48, counts = new Float64Array(bins);
+  for (let j = 0; j <= i; j++) { const b = Math.floor((xs[j] + XR) / (2 * XR) * bins); if (b >= 0 && b < bins) counts[bins - 1 - b]++; }
+  const cmax = Math.max(...counts) || 1, bh = (H - m.t - m.b) / bins;
+  ctx.fillStyle = C.accent; ctx.globalAlpha = 0.35;
+  for (let b = 0; b < bins; b++) if (counts[b]) ctx.fillRect(x0, m.t + b * bh + 0.5, counts[b] / cmax * hw, Math.max(1, bh - 1));
+  ctx.globalAlpha = 1;
+  // Boltzmann density scaled to the same peak as the histogram's normalisation
+  const pts = 200, w = []; let wsum = 0;
+  for (let k = 0; k < pts; k++) { const x = XR - 2 * XR * (k + 0.5) / pts; const v = Math.exp(-U(x) / P.kT); w.push(v); wsum += v; }
+  const total = counts.reduce((a, c) => a + c, 0);
+  const scale = total ? (total * (pts / bins) / wsum) / cmax * hw : 0;
+  if (scale) {
+    ctx.beginPath();
+    let pen = false;
+    for (let k = 0; k < pts; k++) {
+      const v = w[k] * scale, X = x0 + Math.min(hw * 1.15, v), Y = m.t + (k + 0.5) / pts * (H - m.t - m.b);
+      if (v < 0.5) { pen = false; continue; }
+      pen ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); pen = true;
+    }
+    ctx.setLineDash([3, 3]); ctx.strokeStyle = C.ink; ctx.lineWidth = 1.2; ctx.stroke(); ctx.setLineDash([]);
+  }
+  axisText(ctx, "visited x", x0 + hw / 2, H - 14);
+}
+
+function draw() {
+  const i = run && run.finite ? Math.min(run.x.length - 1, Math.floor(head * (run.x.length - 1))) : 0;
+  drawPotential(i);
+  drawTrajectory(i);
+  if (run) $("scrub").value = Math.round(head * 1000);
+}
+
+function tick(ts) {
+  if (playing && run && run.finite) {
+    if (lastTs != null) head += (ts - lastTs) / 1000 * speed / BASE_SECONDS;
+    if (head >= 1) head = 0;  // loop
+    draw();
+  }
+  lastTs = ts;
+  requestAnimationFrame(tick);
+}
+
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
+if (reduceMotion.matches) { playing = false; head = 1; }
+function syncPlay() { $("btn-play").textContent = playing ? "Pause" : "Play"; $("btn-play").setAttribute("aria-pressed", String(!playing)); }
+syncPlay();
+$("btn-play").addEventListener("click", () => { playing = !playing; if (playing && head >= 1) head = 0; syncPlay(); });
+$("btn-restart").addEventListener("click", () => { head = 0; draw(); });
+$("scrub").addEventListener("input", e => { head = +e.target.value / 1000; draw(); });
+for (const b of document.querySelectorAll("[data-speed]")) b.addEventListener("click", () => {
+  speed = +b.dataset.speed;
+  for (const o of document.querySelectorAll("[data-speed]")) o.setAttribute("aria-pressed", String(o === b));
+});
+
+/* ---------------- readouts ---------------- */
+const fmtT = t => t == null || !isFinite(t) ? "–" : t >= 1e5 ? t.toExponential(2) : t >= 100 ? Math.round(t).toLocaleString() : t.toFixed(t >= 10 ? 1 : 2);
+function updateStatic() {
+  $("o-ratio").textContent = (P.barrier / P.kT).toFixed(2);
+  $("o-D").textContent = (P.kT / P.friction).toFixed(3);
+}
+function updateRun() {
+  const r = run;
+  $("o-hops").textContent = r.finite ? r.hops : "–";
+  $("o-right").textContent = r.finite ? Math.round(100 * r.frac_right) + "%" : "–";
+  $("o-dwell").textContent = r.finite ? (r.mean_dwell == null ? "longer than run" : fmtT(r.mean_dwell)) : "–";
+  $("o-tau").textContent = fmtT(r.tau);
+  $("o-kr").textContent = fmtT(r.tau_kramers);
+}
+function setStatus(text, warn = false) { const s = $("status"); s.textContent = text; s.classList.toggle("warn", warn); }
+function stepWarning() {
+  const r = P.dt * 8 * P.barrier / (P.friction * P.d * P.d);   // Δt · U''(min) / ζ
+  if (r > 1) return "Time step is too large for this potential: the integration is unstable. Lower Δt.";
+  if (r > 0.15) return "Time step is large for this potential, so the trajectory is approximate. Lower Δt for accuracy.";
+  return "";
+}
+
+/* ---------------- worker plumbing ---------------- */
+let worker = null, ready = false, busy = false, pending = false, reqId = 0, timer = null;
+function onParams() {
+  updateStatic(); draw();
+  clearTimeout(timer); timer = setTimeout(request, 120);
+}
+function request() {
+  if (!ready) return;
+  if (busy) { pending = true; return; }
+  busy = true; pending = false;
+  const steps = Math.round(P.T / P.dt);
+  setStatus(`Python is integrating ${steps.toLocaleString()} steps…`);
+  worker.postMessage({ type: "run", id: ++reqId, params: { ...P } });
+}
+function start() {
+  const blob = new Blob([WORKER_SRC], { type: "text/javascript" });
+  worker = new Worker(URL.createObjectURL(blob));
+  worker.onmessage = (e) => {
+    const m = e.data;
+    if (m.type === "ready") {
+      ready = true; $("overlay").hidden = true;
+      setStatus(`Python ${m.python} · NumPy ${m.numpy} ready`);
+      request();
+    } else if (m.type === "result") {
+      busy = false;
+      run = m.out;
+      head = reduceMotion.matches && !playing ? 1 : 0;
+      updateRun();
+      const warn = !run.finite ? "The trajectory blew up because the time step is far too large. Lower Δt." : stepWarning();
+      setStatus(warn || `Python: ${run.steps.toLocaleString()} steps in ${run.elapsed.toFixed(2)} s`, !!warn);
+      draw();
+      if (pending) request();
+    } else if (m.type === "error") {
+      busy = false;
+      $("overlay-text").textContent = "Python could not start: " + m.message;
+      setStatus("Error: " + m.message, true);
+    }
+  };
+  worker.onerror = (e) => { $("overlay-text").textContent = "Python could not start. Check your connection and reload."; setStatus(String(e.message || e), true); };
+  worker.postMessage({ type: "init", url: PYODIDE_URL, sources: PY_SOURCES, driver: DRIVER });
+}
+
+updateStatic();
+draw();
+requestAnimationFrame(tick);
+start();
 </script>
 </body>
 </html>

@@ -131,13 +131,10 @@ def cmd_figures(a: argparse.Namespace) -> int:
 
 
 def cmd_web(a: argparse.Namespace) -> int:
-    from .animate import AnimationConfig, build_site
+    from .web import build_web
 
-    cfg = AnimationConfig(t_total=a.clip_time, n_frames=a.frames, fps=a.fps, kT=a.kT, friction=a.friction,
-                          dt=a.dt, seed=a.seed)
-    t0 = time.perf_counter()
-    out = build_site(a.outdir, tuple(a.barriers), cfg, workers=a.workers)
-    print(f"Wrote {out} in {time.perf_counter() - t0:.0f} s", file=sys.stderr)
+    out = build_web(a.outdir)
+    print(f"Wrote {out}", file=sys.stderr)
     return 0
 
 
@@ -177,15 +174,9 @@ def build_parser() -> argparse.ArgumentParser:
     _common(p)
     p.set_defaults(func=cmd_figures)
 
-    p = sub.add_parser("web", help="render animations and the interactive barrier-slider page")
-    p.add_argument("--outdir", default="docs", help="where index.html and anim/ go (default: docs)")
-    p.add_argument("--barriers", type=int, nargs="+", default=list(range(1, 11)), help="barrier heights in kT")
-    p.add_argument("--clip-time", type=float, default=150.0, help="simulated time per animation loop")
-    p.add_argument("--frames", type=int, default=240)
-    p.add_argument("--fps", type=int, default=24)
-    p.add_argument("--workers", type=int, default=None, help="parallel render processes (default: all cores)")
-    _common(p)
-    p.set_defaults(func=cmd_web, seed=7)
+    p = sub.add_parser("web", help="build the live in-browser explorer (Python via Pyodide) into docs/index.html")
+    p.add_argument("--outdir", default="docs", help="output folder (default: docs)")
+    p.set_defaults(func=cmd_web)
     return parser
 
 

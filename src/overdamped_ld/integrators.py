@@ -145,6 +145,37 @@ def simulate(
     mobility_dt = dt / friction
     sigma = np.sqrt(2.0 * kT * dt / friction)
 
+    if n_walkers == 1 and hasattr(potential, "scalar_force"):
+        _simulate_scalar(potential.scalar_force(), float(x[0]), n_steps, stride, mobility_dt, sigma, rng, out[:, 0])
+    else:
+        _simulate_vector(potential, x, n_steps, stride, mobility_dt, sigma, rng, out)
+
+    time = np.arange(n_frames) * dt * stride
+    params = {k: v for k, v in vars(potential).items() if np.isscalar(v)} if hasattr(potential, "__dict__") else {}
+    params["potential"] = type(potential).__name__
+    return Trajectory(time=time, x=out, dt=dt, stride=stride, kT=kT, friction=friction, params=params)
+
+
+def _simulate_scalar(force, x, n_steps, stride, mobility_dt, sigma, rng, out) -> None:
+    """Single walker with plain floats: ~10x faster than NumPy for one walker.
+
+    Draws the same random numbers in the same order as the vector path.
+    """
+    frame = 1
+    step = 0
+    while step < n_steps:
+        chunk = min(_NOISE_CHUNK, n_steps - step)
+        noise = (rng.standard_normal((chunk, 1))[:, 0] * sigma).tolist()
+        for xi in noise:
+            x += mobility_dt * force(x) + xi
+            step += 1
+            if step % stride == 0:
+                out[frame] = x
+                frame += 1
+
+
+def _simulate_vector(potential, x, n_steps, stride, mobility_dt, sigma, rng, out) -> None:
+    n_walkers = x.size
     frame = 1
     step = 0
     while step < n_steps:
@@ -157,11 +188,6 @@ def simulate(
             if step % stride == 0:
                 out[frame] = x
                 frame += 1
-
-    time = np.arange(n_frames) * dt * stride
-    params = {k: v for k, v in vars(potential).items() if np.isscalar(v)} if hasattr(potential, "__dict__") else {}
-    params["potential"] = type(potential).__name__
-    return Trajectory(time=time, x=out, dt=dt, stride=stride, kT=kT, friction=friction, params=params)
 
 
 def first_passage_times(
