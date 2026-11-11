@@ -22,6 +22,16 @@ $$x_{j+1}=x_j-\frac{\Delta t}{\zeta}U'(x_j)+\sqrt{2D\Delta t}\,\xi_j,\qquad D=k_
 
 ![distributions](docs/figures/distributions.png)
 
+## Interactive explorer
+
+`docs/index.html` is a web page with a barrier-height slider. For each height (1–10 $k_BT$) it plays an animation, rendered with matplotlib, of the particle moving on the potential while its trajectory is drawn underneath. Next to the animation it shows the hop count, the exact mean waiting time and the Kramers estimate. Every height uses the same random noise, so only the barrier changes between animations.
+
+```bash
+overdamped-ld web                    # renders docs/anim/*.webp in parallel and writes docs/index.html
+```
+
+To host it, turn on GitHub Pages for the `main` branch's `/docs` folder (**Settings → Pages**).
+
 ## What's in the box
 
 | Module | Contents |
@@ -30,6 +40,7 @@ $$x_{j+1}=x_j-\frac{\Delta t}{\zeta}U'(x_j)+\sqrt{2D\Delta t}\,\xi_j,\qquad D=k_
 | `integrators` | `simulate` (many walkers run in parallel, seeded, strided, saved to `.npz`) and `first_passage_times` |
 | `analysis` | `assign_states` (core sets with hysteresis), `count_transitions`, `transition_rate`, `dwell_times`, `populations`; theory: `boltzmann_density`, `mfpt_exact` (exact 1D quadrature), `kramers_rate` |
 | `plotting` | The figures above |
+| `animate` | Animated trajectories (`FuncAnimation` → animated WebP) and the interactive page |
 | `cli` | The `overdamped-ld` command |
 
 ## Install
