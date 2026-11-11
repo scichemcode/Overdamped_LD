@@ -74,7 +74,7 @@ canvas { display: block; width: 100%; }
 .transport { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 button {
   font: 500 13px var(--font-body); color: var(--ink); background: var(--panel);
-  border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; white-space: nowrap;
 }
 button:hover { border-color: var(--muted); }
 button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -89,16 +89,16 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 
 /* --- parameter rack -------------------------------------------------- */
 .rack { display: grid; gap: 18px; min-width: 0; }
-fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 10px; }
+fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 10px; min-width: 0; }
 legend { font: 500 11px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 0; margin-bottom: 8px; }
 .param { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 2px 10px; }
 .param label { font-size: 14px; color: var(--ink-2); }
 .param label i { font-family: Georgia, "Times New Roman", serif; }
 .param output { font: 500 13px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink); }
 .param input[type=range] { grid-column: 1 / -1; width: 100%; margin: 0; height: 24px; accent-color: var(--accent); cursor: pointer; }
-.seed-row { display: flex; gap: 8px; align-items: center; }
+.seed-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .seed-row label { font-size: 14px; color: var(--ink-2); }
-#seed { width: 7.5em; font: 13px var(--font-mono); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+#seed { width: 6.5em; font: 13px var(--font-mono); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
 
 dl.stats { margin: 0; display: grid; grid-template-columns: 1fr auto; border-top: 1px solid var(--line); }
 dl.stats dt, dl.stats dd { margin: 0; padding: 7px 0; border-bottom: 1px solid var(--line); }
@@ -113,6 +113,19 @@ dl.stats dd { font: 500 13px var(--font-mono); text-align: right; font-variant-n
 .eq { font: 14px var(--font-mono); background: var(--panel); border-radius: 6px; padding: 12px 14px; overflow-x: auto; white-space: nowrap; color: var(--ink); }
 code { font: 13px var(--font-mono); background: var(--panel); padding: 1px 5px; border-radius: 4px; }
 a { color: var(--accent); }
+
+/* --- embed mode (#embed): compact, light, for iframes on other sites --- */
+:root.embed body { padding-block: 10px; }
+:root.embed header, :root.embed .notes { display: none; }
+:root.embed .wrap { gap: 16px; }
+:root.embed .lab { gap: 18px; }
+@media (min-width: 420px) and (max-width: 880px) {
+  :root.embed .rack { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 20px; }
+  :root.embed .rack .stats { grid-column: 1 / -1; }
+}
+@media (min-width: 600px) and (max-width: 880px) {
+  :root.embed .rack .stats { grid-template-columns: 1fr auto 1fr auto; column-gap: 16px; }
+}
 </style>
 </head>
 <body>
@@ -182,6 +195,8 @@ a { color: var(--accent); }
 </div>
 
 <script>
+const EMBED = location.hash === "#embed";
+if (EMBED) { document.documentElement.classList.add("embed"); document.documentElement.dataset.theme = "light"; }
 const PY_SOURCES = /*__SOURCES__*/{};
 const PYODIDE_URL = "https://cdn.jsdelivr.net/pyodide/v0.27.2/full/";
 
@@ -500,6 +515,12 @@ function start() {
   };
   worker.onerror = (e) => { $("overlay-text").textContent = "Python could not start. Check your connection and reload."; setStatus(String(e.message || e), true); };
   worker.postMessage({ type: "init", url: PYODIDE_URL, sources: PY_SOURCES, driver: DRIVER });
+}
+
+if (EMBED && window.parent !== window) {
+  const report = () => window.parent.postMessage({ type: "overdamped-ld:height", height: Math.ceil(document.body.getBoundingClientRect().height) }, "*");
+  new ResizeObserver(report).observe(document.body);
+  report();
 }
 
 updateStatic();
